@@ -18,6 +18,19 @@ const io = new Server(server, {
 
 initSocket(io);
 
+// Auto-seed official problems on startup if database is empty
+try {
+  const db = require('./db');
+  const { migrateOfficialProblems } = require('./db/migrateProblems');
+  const pCount = db.prepare('SELECT COUNT(*) as count FROM problem_statements').get();
+  if (!pCount || pCount.count === 0) {
+    console.log('🌱 Database is empty, auto-seeding official 160 problem statements...');
+    migrateOfficialProblems();
+  }
+} catch (e) {
+  console.warn('Auto-seed check notice:', e.message);
+}
+
 server.listen(PORT, () => {
   console.log(`======================================================`);
   console.log(`🚀 Hackathon Allocation Platform Server Running`);
