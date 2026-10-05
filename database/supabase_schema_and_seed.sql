@@ -123,7 +123,7 @@ VALUES
   ('selection_status', 'OPEN'),
   ('selection_start_time', ''),
   ('selection_end_time', ''),
-  ('hackathon_title', 'HACKATHON 2026')
+  ('hackathon_title', 'Build-to-Ship')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- 10. Seed Lead Admin Account

@@ -75,7 +75,7 @@ export default function AdminDashboard({ onNavigate }) {
     selection_status: 'OPEN',
     selection_start_time: '',
     selection_end_time: '',
-    hackathon_title: 'HACKATHON 2026'
+    hackathon_title: 'Build-to-Ship'
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
@@ -100,7 +100,7 @@ export default function AdminDashboard({ onNavigate }) {
           selection_status: data.settings.selection_status || 'OPEN',
           selection_start_time: data.settings.selection_start_time || '',
           selection_end_time: data.settings.selection_end_time || '',
-          hackathon_title: 'HACKATHON 2026'
+          hackathon_title: data.settings.hackathon_title || 'Build-to-Ship'
         });
       }
     } catch (err) {

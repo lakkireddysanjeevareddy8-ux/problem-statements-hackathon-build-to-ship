@@ -66,7 +66,7 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold tracking-tight text-white text-lg">
-                  HACKATHON<span className="text-indigo-400">2026</span>
+                  BUILD-TO-<span className="text-indigo-400">SHIP</span>
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   Allocation

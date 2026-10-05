@@ -496,7 +496,7 @@ router.put('/settings', (req, res) => {
       selection_status: selection_status || 'OPEN',
       selection_start_time: selection_start_time || '',
       selection_end_time: selection_end_time || '',
-      hackathon_title: hackathon_title || 'HACKATHON 2026'
+      hackathon_title: hackathon_title || 'Build-to-Ship'
     };
 
     broadcastHackathonStatus(payload);

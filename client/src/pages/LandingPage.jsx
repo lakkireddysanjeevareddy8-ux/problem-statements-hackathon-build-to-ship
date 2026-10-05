@@ -63,7 +63,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 backdrop-blur-xl text-indigo-300 text-xs font-bold uppercase tracking-widest mb-6">
             <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
-            <span>Official Hackathon 2026 Portal</span>
+            <span>Official Build-to-Ship Portal</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] mb-6">
@@ -74,7 +74,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
           </h1>
 
           <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10">
-            Welcome to the Hackathon 2026 Problem Statement Allocation Platform. Each challenge is unique and reserved for only one participant. Once selected, your problem statement is permanently locked.
+            Welcome to the Build-to-Ship Hackathon Problem Statement Allocation Platform. Each challenge is unique and reserved for only one participant. Once selected, your problem statement is permanently locked.
           </p>
 
           {/* Call to Actions */}

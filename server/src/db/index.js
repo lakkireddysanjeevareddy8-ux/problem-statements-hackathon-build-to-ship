@@ -82,8 +82,11 @@ if (!getSetting.get('selection_start_time')) {
 if (!getSetting.get('selection_end_time')) {
   insertSetting.run('selection_end_time', '');
 }
-if (!getSetting.get('hackathon_title')) {
-  insertSetting.run('hackathon_title', 'HACKATHON 2026');
+const currentTitle = getSetting.get('hackathon_title');
+if (!currentTitle) {
+  insertSetting.run('hackathon_title', 'Build-to-Ship');
+} else if (currentTitle.value === 'HACKATHON 2026') {
+  db.prepare(`UPDATE settings SET value = 'Build-to-Ship' WHERE key = 'hackathon_title'`).run();
 }
 
 module.exports = db;
