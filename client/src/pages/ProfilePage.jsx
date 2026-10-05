@@ -175,13 +175,12 @@ export default function ProfilePage({ onNavigate }) {
             </div>
 
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Team Name</label>
+              <label className="block text-slate-400 font-semibold mb-1">NIAT ID (Participant ID)</label>
               <input
                 type="text"
-                placeholder="e.g. AlgoWarriors"
-                value={formData.team_name}
-                onChange={(e) => setFormData({ ...formData, team_name: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500"
+                value={user?.niat_id || user?.participant_id || ''}
+                disabled
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/40 border border-slate-800/60 font-mono font-bold text-indigo-400 cursor-not-allowed"
               />
             </div>
 

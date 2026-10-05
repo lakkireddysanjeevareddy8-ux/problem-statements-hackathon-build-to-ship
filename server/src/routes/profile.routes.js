@@ -87,7 +87,8 @@ router.get('/my-problem', authenticateToken, (req, res) => {
         u.course,
         u.year,
         u.team_name,
-        u.participant_id
+        u.participant_id,
+        u.niat_id
       FROM problem_assignments a
       JOIN problem_statements p ON a.problem_statement_id = p.id
       JOIN domains d ON p.domain_id = d.id
@@ -134,7 +135,8 @@ router.get('/my-problem', authenticateToken, (req, res) => {
           course: assignment.course,
           year: assignment.year,
           team_name: assignment.team_name,
-          participant_id: assignment.participant_id
+          participant_id: assignment.participant_id,
+          niat_id: assignment.niat_id
         }
       }
     });

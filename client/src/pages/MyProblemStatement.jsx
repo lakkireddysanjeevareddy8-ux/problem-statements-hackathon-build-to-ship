@@ -69,7 +69,7 @@ export default function MyProblemStatement({ onNavigate }) {
           </div>
           <h2 className="text-2xl font-extrabold text-white mb-2">No Problem Statement Selected Yet</h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-            You have not locked a challenge yet. Explore the 160 available problems across 16 domains and choose the best one for your team.
+            You have not locked a challenge yet. Explore the 160 available problems across 16 domains and choose the best one for you.
           </p>
           <button
             onClick={() => onNavigate('problems')}
@@ -125,19 +125,27 @@ export default function MyProblemStatement({ onNavigate }) {
               <Lock className="w-7 h-7" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs font-extrabold px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {problem.code}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <span>🎯 Your Problem Statement</span>
                 </span>
-                <span className="text-xs font-extrabold text-emerald-400 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>🟢 LOCKED TO YOUR ACCOUNT</span>
-                </span>
+                <span className="text-slate-600">•</span>
+                <span className="text-xs font-bold text-slate-400">Problem ID: <span className="font-mono text-white">{problem.code}</span></span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white mt-2 leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-white mt-1 leading-tight">
                 {problem.title}
               </h1>
+              <p className="text-xs sm:text-sm text-emerald-300 font-medium mt-1.5 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Your problem statement has been successfully locked to your account.</span>
+              </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            <span className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black tracking-wide flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5" />
+              <span>STATUS: LOCKED</span>
+            </span>
           </div>
         </div>
 
@@ -216,20 +224,30 @@ export default function MyProblemStatement({ onNavigate }) {
           </div>
         </div>
 
-        {/* Right 1 Col: Participant & Team Credentials Card */}
+        {/* Right 1 Col: Participant Credentials Card */}
         <div className="space-y-6">
           <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-4">
             <h3 className="text-xs font-extrabold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
               <Users className="w-4 h-4" />
-              <span>Assigned Participant & Team</span>
+              <span>Assigned Participant Details</span>
             </h3>
 
             <div className="space-y-3.5 pt-2 text-xs">
               <div className="flex items-start gap-3">
                 <User className="w-4 h-4 text-slate-400 mt-0.5" />
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-semibold">Lead Participant</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-semibold">Participant Name</p>
                   <p className="font-bold text-white text-sm">{participant.name}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-semibold">NIAT ID</p>
+                  <p className="font-mono font-bold text-emerald-400 text-sm">
+                    {participant.niat_id || participant.participant_id || user?.niat_id || user?.participant_id || 'NIAT001'}
+                  </p>
                 </div>
               </div>
 
@@ -241,15 +259,13 @@ export default function MyProblemStatement({ onNavigate }) {
                 </div>
               </div>
 
-              {participant.team_name && (
-                <div className="flex items-start gap-3">
-                  <Users className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Team Name</p>
-                    <p className="font-bold text-indigo-300">{participant.team_name}</p>
-                  </div>
+              <div className="flex items-start gap-3">
+                <Users className="w-4 h-4 text-slate-400 mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-semibold">Participation Type</p>
+                  <p className="font-bold text-indigo-300">Individual Participant</p>
                 </div>
-              )}
+              </div>
 
               {participant.college && (
                 <div className="flex items-start gap-3">

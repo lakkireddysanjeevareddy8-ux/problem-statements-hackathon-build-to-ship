@@ -64,7 +64,7 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
     `).get(uId);
 
     if (userAssignment) {
-      const err = new Error('You have already selected a problem statement. Problem statements cannot be changed.');
+      const err = new Error('You have already selected a problem statement. Your selection is permanently locked.');
       err.status = 409;
       err.code = 'USER_ALREADY_ASSIGNED';
       err.existingAssignment = userAssignment;
@@ -87,7 +87,7 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
     }
 
     if (problem.status !== 'AVAILABLE') {
-      const err = new Error('Sorry! This problem statement was selected by another participant a moment ago. Please choose another available problem.');
+      const err = new Error('Sorry, this problem was just selected by another participant. Please choose another problem.');
       err.status = 409;
       err.code = 'PROBLEM_UNAVAILABLE';
       throw err;
@@ -99,7 +99,7 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
     `).get(pId);
 
     if (problemAssignment) {
-      const err = new Error('Sorry! This problem statement was selected by another participant a moment ago. Please choose another available problem.');
+      const err = new Error('Sorry, this problem was just selected by another participant. Please choose another problem.');
       err.status = 409;
       err.code = 'PROBLEM_ALREADY_ASSIGNED';
       throw err;
@@ -115,9 +115,9 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
       `).run(pId, uId);
     } catch (sqlErr) {
       if (sqlErr.message && sqlErr.message.includes('UNIQUE')) {
-        const err = new Error('Conflict: Problem statement has just been selected or your account already has one.');
+        const err = new Error('Sorry, this problem was just selected by another participant. Please choose another problem.');
         err.status = 409;
-        err.code = 'UNIQUE_CONSTRAINT_VIOLATION';
+        err.code = 'PROBLEM_ALREADY_ASSIGNED';
         throw err;
       }
       throw sqlErr;
@@ -156,7 +156,7 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
 
   // Broadcast real-time event to other participants
   try {
-    broadcastProblemLocked(result.problem);
+    broadcastProblemLocked(result.problem, userId);
   } catch (socketErr) {
     console.warn('Socket broadcast warning:', socketErr);
   }

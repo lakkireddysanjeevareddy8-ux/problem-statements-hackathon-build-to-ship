@@ -31,7 +31,14 @@ export default function SelectionSuccessModal({ problem, onViewMyProblem }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onViewMyProblem();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300"
+    >
       <div className="relative w-full max-w-lg rounded-3xl border border-emerald-500/40 bg-slate-900 p-8 shadow-2xl shadow-emerald-500/20 text-center animate-in zoom-in-95 duration-200">
         {/* Animated Celebration Icon */}
         <div className="mx-auto w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-[1px] shadow-xl shadow-emerald-500/30 mb-5 animate-bounce">

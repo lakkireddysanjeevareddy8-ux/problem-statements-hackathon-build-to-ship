@@ -25,28 +25,40 @@ router.get('/domains', (req, res) => {
   }
 });
 
-// Get available problem statements (for participants)
-// Enforces Section 4 & 15: ONLY AVAILABLE problems appear.
+// Get problem statements (for participants)
+// Supports include_all=true for full list with live availability statuses (Section 1 & 14)
+// Defaults to ONLY AVAILABLE for backwards compatibility with tests
 router.get('/', (req, res) => {
   try {
-    const { domain, difficulty, search } = req.query;
+    const { domain, difficulty, search, status, include_all } = req.query;
 
     let query = `
       SELECT p.id, p.problem_code, p.title, p.description, p.detailed_requirements,
              p.expected_outcome, p.difficulty, p.tags, p.status, p.created_at,
-             d.id as domain_id, d.name as domain_name, d.code as domain_code, d.icon as domain_icon
+             d.id as domain_id, d.name as domain_name, d.code as domain_code, d.icon as domain_icon,
+             a.user_id as assigned_user_id
       FROM problem_statements p
       JOIN domains d ON p.domain_id = d.id
-      WHERE p.status = 'AVAILABLE'
+      LEFT JOIN problem_assignments a ON p.id = a.problem_statement_id
+      WHERE 1=1
     `;
     const params = [];
 
-    if (domain) {
+    if (status && status !== 'ALL') {
+      query += ` AND p.status = ?`;
+      params.push(status);
+    } else if (include_all === 'true' || include_all === '1' || status === 'ALL') {
+      // Return all statuses (AVAILABLE, ASSIGNED)
+    } else {
+      query += ` AND p.status = 'AVAILABLE'`;
+    }
+
+    if (domain && domain !== 'ALL') {
       query += ` AND (d.code = ? OR d.id = ?)`;
       params.push(domain, domain);
     }
 
-    if (difficulty) {
+    if (difficulty && difficulty !== 'ALL') {
       query += ` AND p.difficulty = ?`;
       params.push(difficulty);
     }
@@ -61,6 +73,15 @@ router.get('/', (req, res) => {
 
     const problems = db.prepare(query).all(...params);
 
+    // Compute live stats directly from real database counts! (Section 13)
+    const statsRow = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available,
+        SUM(CASE WHEN status = 'ASSIGNED' THEN 1 ELSE 0 END) as assigned
+      FROM problem_statements
+    `).get();
+
     // Get current hackathon status
     const statusSetting = db.prepare("SELECT value FROM system_settings WHERE key = 'selection_status'").get();
     const startSetting = db.prepare("SELECT value FROM system_settings WHERE key = 'selection_start_time'").get();
@@ -71,7 +92,9 @@ router.get('/', (req, res) => {
       success: true,
       problems,
       meta: {
-        total: problems.length,
+        total: statsRow ? statsRow.total : problems.length,
+        available: statsRow ? statsRow.available : problems.length,
+        assigned: statsRow ? statsRow.assigned : 0,
         selection_status: statusSetting ? statusSetting.value : 'OPEN',
         selection_start_time: startSetting ? startSetting.value : null,
         selection_end_time: endSetting ? endSetting.value : null,
@@ -85,18 +108,91 @@ router.get('/', (req, res) => {
   }
 });
 
+// Helper to resolve problem ID from numeric ID, exact code, or formatted code (e.g. AG-04 -> A4)
+function findProblemByParam(param) {
+  if (!param) return null;
+  const strParam = String(param).trim();
+
+  // 1. Try by numeric ID
+  const numId = parseInt(strParam, 10);
+  if (!isNaN(numId) && String(numId) === strParam) {
+    const byId = db.prepare('SELECT id FROM problem_statements WHERE id = ?').get(numId);
+    if (byId) return byId.id;
+  }
+
+  // 2. Try exact problem_code (case-insensitive)
+  const byCode = db.prepare('SELECT id FROM problem_statements WHERE problem_code = ? COLLATE NOCASE').get(strParam);
+  if (byCode) return byCode.id;
+
+  // 3. Try hyphenated format (e.g. AG-01, AG-04, HC-02, SA-05)
+  const match = strParam.match(/^([a-zA-Z]+)[-_]?(\d+)$/);
+  if (match) {
+    const prefix = match[1].toUpperCase();
+    const num = parseInt(match[2], 10);
+
+    const prefixMap = {
+      'AG': 'A',
+      'HC': 'H',
+      'HOSP': 'H',
+      'ED': 'E',
+      'EDU': 'E',
+      'SC': 'S',
+      'CITY': 'S',
+      'PS': 'P',
+      'SAFE': 'P',
+      'FN': 'F',
+      'FIN': 'F',
+      'RC': 'R',
+      'RET': 'R',
+      'EC': 'C',
+      'ENV': 'C',
+      'TM': 'T',
+      'TRANS': 'T',
+      'EP': 'J',
+      'JOB': 'J',
+      'GV': 'G',
+      'GOV': 'G',
+      'HM': 'HC',
+      'HOME': 'HC',
+      'FD': 'FN',
+      'FOOD': 'FN',
+      'MW': 'MW',
+      'CS': 'CS',
+      'CYBER': 'CS',
+      'SA': 'SA',
+      'AUTO': 'SA'
+    };
+
+    const targetCode1 = `${prefix}${num}`;
+    const byVariant1 = db.prepare('SELECT id FROM problem_statements WHERE problem_code = ? COLLATE NOCASE').get(targetCode1);
+    if (byVariant1) return byVariant1.id;
+
+    if (prefixMap[prefix]) {
+      const targetCode2 = `${prefixMap[prefix]}${num}`;
+      const byVariant2 = db.prepare('SELECT id FROM problem_statements WHERE problem_code = ? COLLATE NOCASE').get(targetCode2);
+      if (byVariant2) return byVariant2.id;
+    }
+  }
+
+  return null;
+}
+
 // Get single problem statement details
 router.get('/:id', (req, res) => {
   try {
-    const problemId = req.params.id;
+    const resolvedId = findProblemByParam(req.params.id);
+    if (!resolvedId) {
+      return res.status(404).json({ success: false, message: 'Problem statement not found.' });
+    }
+
     const problem = db.prepare(`
       SELECT p.id, p.problem_code, p.title, p.description, p.detailed_requirements,
              p.expected_outcome, p.difficulty, p.tags, p.status, p.created_at,
              d.id as domain_id, d.name as domain_name, d.code as domain_code, d.icon as domain_icon
       FROM problem_statements p
       JOIN domains d ON p.domain_id = d.id
-      WHERE p.id = ? OR p.problem_code = ?
-    `).get(problemId, problemId);
+      WHERE p.id = ?
+    `).get(resolvedId);
 
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem statement not found.' });
@@ -104,7 +200,6 @@ router.get('/:id', (req, res) => {
 
     // PRIVACY REQUIREMENT (Section 15):
     // Do NOT expose who selected it to standard participants!
-    // Return sanitized object.
     return res.json({
       success: true,
       problem: {
@@ -139,14 +234,9 @@ router.post('/:id/select', authenticateToken, (req, res) => {
   const ipAddress = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
 
   try {
-    // Lookup problem numeric ID if code passed
-    let pId = parseInt(problemIdParam, 10);
-    if (isNaN(pId)) {
-      const found = db.prepare('SELECT id FROM problem_statements WHERE problem_code = ?').get(problemIdParam);
-      if (!found) {
-        return res.status(404).json({ success: false, message: 'Problem statement not found.' });
-      }
-      pId = found.id;
+    const pId = findProblemByParam(problemIdParam);
+    if (!pId) {
+      return res.status(404).json({ success: false, message: 'Problem statement not found.' });
     }
 
     // Log selection attempt
@@ -159,6 +249,11 @@ router.post('/:id/select', authenticateToken, (req, res) => {
       success: true,
       message: 'Problem statement successfully selected and locked exclusively to your account!',
       assignmentId: allocationResult.assignmentId,
+      assignment: {
+        id: allocationResult.assignmentId,
+        status: 'LOCKED',
+        problem: allocationResult.problem
+      },
       problem: allocationResult.problem
     });
   } catch (err) {

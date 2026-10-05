@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   X,
@@ -20,6 +20,16 @@ export default function ProblemDetailModal({
 }) {
   const { user, assignedProblem } = useAuth();
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!problem) return null;
 
   let tagsArray = [];
@@ -36,7 +46,14 @@ export default function ProblemDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="p-6 border-b border-slate-800/80 flex items-start justify-between gap-4 bg-slate-950/40">
@@ -52,10 +69,17 @@ export default function ProblemDetailModal({
               <span className={`text-xs font-bold px-3 py-0.5 rounded-full border ${difficultyColors[problem.difficulty] || difficultyColors.Medium}`}>
                 {problem.difficulty}
               </span>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                AVAILABLE
-              </span>
+              {problem.status === 'ASSIGNED' ? (
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-rose-400" />
+                  UNAVAILABLE
+                </span>
+              ) : (
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  AVAILABLE
+                </span>
+              )}
             </div>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white leading-snug">
               {problem.title}
@@ -157,6 +181,11 @@ export default function ProblemDetailModal({
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs font-bold text-slate-400">
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
                 <span>You already locked problem {assignedProblem.problem_code}</span>
+              </div>
+            ) : problem.status === 'ASSIGNED' ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs font-bold text-slate-400">
+                <Lock className="w-3.5 h-3.5 text-rose-400" />
+                <span>🔒 Problem is Unavailable (Locked)</span>
               </div>
             ) : !isSelectionOpen ? (
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/50 border border-rose-800/60 text-xs font-bold text-rose-300">

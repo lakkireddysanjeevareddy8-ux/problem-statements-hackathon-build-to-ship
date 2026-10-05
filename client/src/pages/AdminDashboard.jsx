@@ -30,7 +30,7 @@ import {
 
 export default function AdminDashboard({ onNavigate }) {
   const { token, user } = useAuth();
-  const { broadcastProblemUpdated } = useSocket();
+  const { broadcastProblemUpdated, subscribeToProblems } = useSocket();
 
   const [activeTab, setActiveTab] = useState('overview'); // overview, problems, participants, assignments, import, export, settings, logs
   const [loading, setLoading] = useState(true);
@@ -205,6 +205,46 @@ export default function AdminDashboard({ onNavigate }) {
     if (activeTab === 'assignments') fetchAssignments();
     if (activeTab === 'logs') fetchAuditLogs();
   }, [activeTab, problemStatusFilter, problemDomainFilter, participantStatusFilter]);
+
+  // Real-time synchronization for Admin Dashboard (Section 12)
+  useEffect(() => {
+    if (!subscribeToProblems) return;
+
+    const unsubscribe = subscribeToProblems((event, data) => {
+      if (!data) return;
+
+      if (event === 'problem_locked' || event === 'problem_assigned') {
+        // Immediately update problem state
+        setProblems((prev) =>
+          prev.map((p) =>
+            p.id === data.problemId || p.problem_code === data.problemCode
+              ? { ...p, status: 'ASSIGNED' }
+              : p
+          )
+        );
+
+        // Fetch fresh stats from the database (Section 12: Assigned +1, Available -1)
+        fetchDashboard();
+        fetchAssignments();
+        fetchParticipants();
+      } else if (event === 'problem_unlocked' || event === 'problem_updated') {
+        setProblems((prev) =>
+          prev.map((p) =>
+            p.id === data.problemId || p.problem_code === data.problemCode
+              ? { ...p, status: data.status || 'AVAILABLE' }
+              : p
+          )
+        );
+        fetchDashboard();
+        fetchAssignments();
+        fetchParticipants();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribeToProblems]);
 
   const showAlert = (msg, type = 'success') => {
     setStatusAlert({ msg, type });
@@ -526,7 +566,7 @@ export default function AdminDashboard({ onNavigate }) {
         <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
           <p className="text-[11px] text-amber-400 uppercase font-bold">Selected</p>
           <p className="text-2xl font-black text-amber-400 mt-1">{stats?.selected_problems ?? 0}</p>
-          <span className="text-[10px] text-slate-500 font-medium">Locked to teams</span>
+          <span className="text-[10px] text-slate-500 font-medium">Locked to participants</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
@@ -793,9 +833,9 @@ export default function AdminDashboard({ onNavigate }) {
                             <span className="text-[10px] text-slate-400 block truncate max-w-[140px]">
                               {p.selected_by_email}
                             </span>
-                            {p.selected_by_team && (
-                              <span className="text-[10px] text-indigo-400 font-semibold">
-                                Team: {p.selected_by_team}
+                            {(p.selected_by_niat || p.selected_by_participant_id) && (
+                              <span className="text-[10px] text-indigo-400 font-mono font-semibold block">
+                                NIAT: {p.selected_by_niat || p.selected_by_participant_id}
                               </span>
                             )}
                           </div>
@@ -860,7 +900,7 @@ export default function AdminDashboard({ onNavigate }) {
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="Search participants by name, email, college, or team..."
+                  placeholder="Search participants by name, NIAT ID, email, or college..."
                   value={participantSearch}
                   onChange={(e) => setParticipantSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchParticipants()}
@@ -893,9 +933,9 @@ export default function AdminDashboard({ onNavigate }) {
               <thead className="bg-slate-950/80 text-slate-400 font-bold border-b border-slate-800">
                 <tr>
                   <th className="py-3.5 px-4">Participant Name</th>
+                  <th className="py-3.5 px-4">NIAT ID</th>
                   <th className="py-3.5 px-4">Email & Phone</th>
                   <th className="py-3.5 px-4">College</th>
-                  <th className="py-3.5 px-4">Team</th>
                   <th className="py-3.5 px-4">Assigned Problem</th>
                   <th className="py-3.5 px-4">Selection Time</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -914,15 +954,15 @@ export default function AdminDashboard({ onNavigate }) {
                       <td className="py-3 px-4 font-bold text-white">
                         {u.name}
                       </td>
+                      <td className="py-3 px-4 font-mono font-bold text-indigo-400">
+                        {u.niat_id || u.participant_id || '—'}
+                      </td>
                       <td className="py-3 px-4">
                         <span className="text-slate-200 block">{u.email}</span>
                         {u.phone && <span className="text-[10px] text-slate-500 block">{u.phone}</span>}
                       </td>
                       <td className="py-3 px-4 text-slate-300 max-w-[150px] truncate" title={u.college}>
                         {u.college || '—'}
-                      </td>
-                      <td className="py-3 px-4 text-indigo-300 font-medium">
-                        {u.team_name || '—'}
                       </td>
                       <td className="py-3 px-4">
                         {u.problem_code ? (
@@ -985,7 +1025,7 @@ export default function AdminDashboard({ onNavigate }) {
                   <th className="py-3.5 px-4">Challenge Title</th>
                   <th className="py-3.5 px-4">Domain</th>
                   <th className="py-3.5 px-4">Assigned Participant</th>
-                  <th className="py-3.5 px-4">Team</th>
+                  <th className="py-3.5 px-4">NIAT ID</th>
                   <th className="py-3.5 px-4">Selection Timestamp</th>
                   <th className="py-3.5 px-4 text-right">Reset Action</th>
                 </tr>
@@ -1013,8 +1053,8 @@ export default function AdminDashboard({ onNavigate }) {
                         <span className="font-bold text-white block">{a.participant_name}</span>
                         <span className="text-[10px] text-slate-400 block">{a.participant_email}</span>
                       </td>
-                      <td className="py-3 px-4 text-indigo-300 font-medium">
-                        {a.team_name || '—'}
+                      <td className="py-3 px-4 font-mono font-bold text-indigo-400">
+                        {a.niat_id || a.participant_id || '—'}
                       </td>
                       <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
                         {new Date(a.selected_at).toLocaleString()}
@@ -1120,7 +1160,7 @@ export default function AdminDashboard({ onNavigate }) {
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 text-left space-y-2">
             <p className="font-bold text-white">Export CSV Format Specifications:</p>
             <p className="text-[11px] text-slate-400">
-              Columns included: Participant Name, Email, Phone, College, Course, Year, Team, Problem ID, Problem Title, Domain, Selection Timestamp.
+              Columns included: Participant Name, NIAT ID, Email, Phone, College, Course, Year, Problem ID, Problem Title, Domain, Selection Timestamp.
             </p>
           </div>
 
@@ -1262,7 +1302,14 @@ export default function AdminDashboard({ onNavigate }) {
 
       {/* MODAL: ADD / EDIT PROBLEM */}
       {problemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setProblemModalOpen(false);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        >
           <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-white">
@@ -1398,7 +1445,14 @@ export default function AdminDashboard({ onNavigate }) {
 
       {/* MODAL: RESET ASSIGNMENT WORKFLOW (Section 30) */}
       {resetModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !resetting) {
+              setResetModalData(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
+        >
           <div className="relative w-full max-w-lg rounded-3xl border border-amber-500/40 bg-slate-900 p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
@@ -1425,7 +1479,7 @@ export default function AdminDashboard({ onNavigate }) {
                 <label className="block text-slate-300 font-semibold mb-1">Administrative Reason (Required for Audit Log) *</label>
                 <textarea
                   rows={3}
-                  placeholder="e.g. Participant requested disqualification / team dissolved..."
+                  placeholder="e.g. Participant requested reallocation or problem reassignment..."
                   value={resetReason}
                   onChange={(e) => setResetReason(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-amber-500"

@@ -21,9 +21,9 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // Fetch active user
     const user = db.prepare(`
-      SELECT id, name, email, role, phone, college, course, year, team_name, participant_id
+      SELECT id, niat_id, auth_provider, auth_provider_user_id, name, email, profile_photo_url, role,
+             phone, college, course, year, team_name, participant_id, created_at, updated_at
       FROM users
       WHERE id = ?
     `).get(decoded.id);
@@ -53,9 +53,21 @@ function requireParticipant(req, res, next) {
   next();
 }
 
+function getAuthorizedAdminEmails() {
+  const envList = process.env.ADMIN_EMAILS || '';
+  const singleAdmin = process.env.ADMIN_EMAIL || 'admin@hackathon.org';
+  const combined = `${envList},${singleAdmin}`;
+  return combined
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 module.exports = {
   authenticateToken,
   requireAdmin,
   requireParticipant,
+  getAuthorizedAdminEmails,
   JWT_SECRET
 };
+

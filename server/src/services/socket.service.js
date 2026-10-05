@@ -8,14 +8,32 @@ function initSocket(serverIo) {
   });
 }
 
-function broadcastProblemLocked(problem) {
+function broadcastProblemLocked(problem, userId = null) {
   if (io) {
-    io.emit('problem_locked', {
+    const payload = {
       problemId: problem.id,
       problemCode: problem.problem_code,
       title: problem.title,
+      status: 'ASSIGNED',
+      assignedUserId: userId,
       timestamp: new Date().toISOString()
-    });
+    };
+    io.emit('problem_locked', payload);
+    io.emit('problem_assigned', payload);
+  }
+}
+
+function broadcastProblemUnlocked(problem) {
+  if (io) {
+    const payload = {
+      problemId: problem.id,
+      problemCode: problem.problem_code,
+      title: problem.title,
+      status: 'AVAILABLE',
+      timestamp: new Date().toISOString()
+    };
+    io.emit('problem_unlocked', payload);
+    io.emit('problem_updated', payload);
   }
 }
 
@@ -34,6 +52,8 @@ function broadcastHackathonStatus(statusPayload) {
 module.exports = {
   initSocket,
   broadcastProblemLocked,
+  broadcastProblemUnlocked,
   broadcastProblemUpdated,
   broadcastHackathonStatus
 };
+

@@ -4,7 +4,7 @@ const multer = require('multer');
 const db = require('../db');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { logAudit } = require('../services/audit.service');
-const { broadcastHackathonStatus, broadcastProblemUpdated } = require('../services/socket.service');
+const { broadcastHackathonStatus, broadcastProblemUpdated, broadcastProblemUnlocked } = require('../services/socket.service');
 
 // Configure multer for CSV uploads
 const upload = multer({
@@ -114,7 +114,7 @@ router.get('/problems', (req, res) => {
              p.expected_outcome, p.difficulty, p.tags, p.status, p.created_at, p.updated_at,
              d.id as domain_id, d.name as domain_name, d.code as domain_code, d.icon as domain_icon,
              a.id as assignment_id, a.selected_at,
-             u.id as user_id, u.name as selected_by_name, u.email as selected_by_email,
+             u.id as user_id, u.niat_id as selected_by_niat_id, u.name as selected_by_name, u.email as selected_by_email,
              u.team_name as selected_by_team, u.college as selected_by_college
       FROM problem_statements p
       JOIN domains d ON p.domain_id = d.id
@@ -334,7 +334,7 @@ router.get('/participants', (req, res) => {
     const { college, domain, team, status, search } = req.query;
 
     let query = `
-      SELECT u.id, u.name, u.email, u.phone, u.college, u.course, u.year, u.team_name, u.participant_id, u.created_at,
+      SELECT u.id, u.niat_id, u.name, u.email, u.phone, u.college, u.course, u.year, u.team_name, u.participant_id, u.created_at,
              a.id as assignment_id, a.selected_at, a.status as assignment_status,
              p.id as problem_id, p.problem_code, p.title as problem_title,
              d.id as domain_id, d.name as domain_name, d.code as domain_code, d.icon as domain_icon
@@ -453,8 +453,9 @@ router.post('/reset-assignment/:id', (req, res) => {
 
     resetTx();
 
-    // Broadcast problem available again
+    // Broadcast problem available again to all connected participants
     const updatedProblem = db.prepare('SELECT * FROM problem_statements WHERE id = ?').get(assignment.problem_id);
+    broadcastProblemUnlocked(updatedProblem);
     broadcastProblemUpdated(updatedProblem);
 
     return res.json({

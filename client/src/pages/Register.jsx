@@ -2,215 +2,207 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   UserPlus,
-  Mail,
-  Lock,
   User,
-  Building,
-  GraduationCap,
-  Users,
-  Phone,
+  CreditCard,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Lock,
+  ShieldCheck,
+  Loader2
 } from 'lucide-react';
 
 export default function Register({ onNavigate }) {
-  const { login } = useAuth();
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-    college: '',
-    course: '',
-    year: '',
-    team_name: '',
-    participant_id: ''
-  });
-
+  const { loginWithNiat, loginAdmin } = useAuth();
+  const [name, setName] = useState('');
+  const [niatId, setNiatId] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg(null);
 
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
+    const cleanName = name.trim();
+    const cleanNiatId = niatId.trim();
 
-      if (res.ok && data.success) {
-        login(data.user, data.token);
-        onNavigate('problems');
+    // Smart detection: If an email is entered in either field, authenticate directly as Admin
+    const possibleEmail = (cleanNiatId && cleanNiatId.includes('@'))
+      ? cleanNiatId
+      : ((cleanName && cleanName.includes('@')) ? cleanName : null);
+
+    if (possibleEmail) {
+      setLoading(true);
+      try {
+        const adminRes = await loginAdmin(possibleEmail);
+        setLoading(false);
+        if (adminRes.success) {
+          onNavigate('admin');
+          return;
+        } else {
+          setErrorMsg(adminRes.message || 'This email is not authorized for administrator access.');
+          return;
+        }
+      } catch (err) {
+        setLoading(false);
+        setErrorMsg('Failed to connect to the server. Please try again.');
+        return;
+      }
+    }
+
+    if (!cleanName || !cleanNiatId) {
+      setErrorMsg('Please enter your name and NIAT ID.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await loginWithNiat(cleanName, cleanNiatId.toUpperCase());
+      setLoading(false);
+
+      if (result.success) {
+        if (result.user?.role === 'ADMIN' || result.isAdmin) {
+          onNavigate('admin');
+        } else {
+          onNavigate(result.assignedProblem ? 'my-problem' : 'problems');
+        }
       } else {
-        setErrorMsg(data.message || 'Registration failed.');
+        setErrorMsg(result.message || 'Registration failed. Please check your details.');
       }
     } catch (err) {
-      setErrorMsg('Failed to connect to the server. Please try again.');
-    } finally {
       setLoading(false);
+      setErrorMsg('Something went wrong. Please try again.');
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-12">
-      <div className="p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl">
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mx-auto flex items-center justify-center mb-3">
-            <UserPlus className="w-6 h-6" />
-          </div>
-          <h2 className="text-2xl font-black text-white">Participant Registration</h2>
-          <p className="text-xs text-slate-400 mt-1">Join Hackathon 2026 to select and lock your challenge</p>
-        </div>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Background Ambience Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-indigo-600/15 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
-        {errorMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-300 font-semibold mb-1">Full Name *</label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Ada Lovelace"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Email Address *</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="email"
-                  placeholder="ada@university.edu"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
+      <div className="w-full max-w-md">
+        <div className="p-8 sm:p-10 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-2xl shadow-2xl shadow-indigo-950/30">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-4">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Participant Registration • 140 Seats</span>
             </div>
 
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Password *</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="password"
-                  placeholder="Min 6 characters"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                  minLength={6}
-                />
-              </div>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-snug">
+              Participant Registration
+            </h1>
+
+            <p className="text-xs sm:text-sm text-slate-400 mt-2">
+              Enter your Name and NIAT ID to register and choose your challenge.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Error Message Box */}
+          {errorMsg && (
+            <div className="mb-6 p-4 rounded-2xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs flex items-start gap-3 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed font-medium">{errorMsg}</div>
+            </div>
+          )}
+
+          {/* Participant Registration Form */}
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Team Name</label>
+              <label htmlFor="register-name" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Full Name
+              </label>
               <div className="relative">
-                <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
+                  id="register-name"
                   type="text"
-                  placeholder="e.g. CyberKnights"
-                  value={formData.team_name}
-                  onChange={(e) => setFormData({ ...formData, team_name: e.target.value })}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. Sanjeev Reddy"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  autoComplete="name"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/80 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all disabled:opacity-50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Phone Number</label>
+              <label htmlFor="register-niat-id" className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                NIAT ID
+              </label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
-                  type="tel"
-                  placeholder="+1-555-0199"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  id="register-niat-id"
+                  type="text"
+                  placeholder="e.g. NIAT003"
+                  value={niatId}
+                  onChange={(e) => setNiatId(e.target.value)}
+                  disabled={loading}
+                  autoComplete="off"
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/80 border border-slate-800 text-white font-mono placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all ${niatId.includes('@') ? '' : 'uppercase'} disabled:opacity-50`}
                 />
+              </div>
+            </div>
+
+            {/* Continue Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-sm shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Registering Participant...</span>
+                </>
+              ) : (
+                <>
+                  <span>Register & Continue</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Key Constraints Box */}
+          <div className="mt-8 pt-6 border-t border-slate-800/80">
+            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-950/50 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+              <Lock className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-slate-200">One Problem Guarantee:</strong> One NIAT ID = One participant account. Once you select and confirm your challenge, it is permanently locked to your account.
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-slate-300 font-semibold mb-1">College / Institution</label>
-            <div className="relative">
-              <Building className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="e.g. California Institute of Technology"
-                value={formData.college}
-                onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          {/* Navigation link to Login */}
+          <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
+            <span>
+              Already registered?{' '}
+              <button
+                type="button"
+                onClick={() => onNavigate('login')}
+                className="text-indigo-400 font-bold hover:underline cursor-pointer"
+              >
+                Log In here
+              </button>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('admin-login')}
+              className="text-slate-500 hover:text-purple-400 transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin Access</span>
+            </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Course / Major</label>
-              <input
-                type="text"
-                placeholder="e.g. B.S. CS"
-                value={formData.course}
-                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Year of Study</label>
-              <input
-                type="text"
-                placeholder="e.g. 3rd Year"
-                value={formData.year}
-                onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-extrabold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <span>{loading ? 'Registering Account...' : 'Complete Registration'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-xs text-slate-400">
-          Already registered?{' '}
-          <button
-            onClick={() => onNavigate('login')}
-            className="text-indigo-400 font-bold hover:underline cursor-pointer"
-          >
-            Log In here
-          </button>
         </div>
       </div>
     </div>
   );
 }
+

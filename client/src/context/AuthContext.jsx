@@ -74,6 +74,42 @@ export function AuthProvider({ children }) {
     setAssignedProblem(problem);
   };
 
+  const loginWithNiat = async (name, niatId) => {
+    try {
+      const res = await fetch('/api/participants/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, niatId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        login(data.user, data.token, data.assignedProblem);
+        return { success: true, user: data.user, assignedProblem: data.assignedProblem };
+      }
+      return { success: false, message: data.message || 'Login failed.' };
+    } catch (err) {
+      return { success: false, message: 'Failed to connect to the server. Please try again.' };
+    }
+  };
+
+  const loginAdmin = async (email) => {
+    try {
+      const res = await fetch('/api/auth/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email ? email.trim().toLowerCase() : '' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        login(data.user, data.token, null);
+        return { success: true, user: data.user };
+      }
+      return { success: false, message: data.message || 'This email is not authorized for administrator access.' };
+    } catch (err) {
+      return { success: false, message: 'Failed to connect to the server. Please try again.' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -81,6 +117,8 @@ export function AuthProvider({ children }) {
       token,
       loading,
       login,
+      loginWithNiat,
+      loginAdmin,
       logout,
       refreshUser,
       setAssignedProblemDirect,

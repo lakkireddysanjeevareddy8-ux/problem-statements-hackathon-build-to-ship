@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Code2,
@@ -17,6 +17,35 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
   const { user, assignedProblem, logout, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef(null);
+
+  // Close user dropdown pop-up when tapping/clicking anywhere outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setUserDropdownOpen(false);
+        setMobileMenuOpen(false);
+      }
+    }
+
+    if (userDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userDropdownOpen]);
 
   const isSelectionOpen = hackathonMeta?.is_selection_open ?? true;
 
@@ -122,18 +151,32 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
             </div>
 
             {user ? (
-              <div className="relative">
+              <div className="relative" ref={userDropdownRef}>
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 p-1.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800/80 transition-all text-left"
+                  className="flex items-center gap-2.5 p-1.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-800/80 transition-all text-left cursor-pointer"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold uppercase shadow-sm">
-                    {user.name ? user.name.slice(0, 2) : 'US'}
-                  </div>
+                  {user.profile_photo_url ? (
+                    <img
+                      src={user.profile_photo_url}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-lg object-cover border border-slate-700 shadow-sm"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold uppercase shadow-sm">
+                      {user.name ? user.name.slice(0, 2) : 'US'}
+                    </div>
+                  )}
                   <div className="hidden sm:block">
                     <p className="text-xs font-bold text-slate-200 truncate max-w-[120px]">{user.name}</p>
                     <p className="text-[10px] text-slate-400 font-medium">
-                      {assignedProblem ? (
+                      {(user.niat_id || user.participant_id) ? (
+                        <span className="font-mono text-indigo-400 font-semibold">{user.niat_id || user.participant_id}</span>
+                      ) : assignedProblem ? (
                         <span className="text-emerald-400 font-semibold flex items-center gap-1">
                           <Lock className="w-2.5 h-2.5" /> Locked
                         </span>
@@ -145,45 +188,71 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
 
-                {/* User Dropdown */}
+                {/* User Dropdown / Account Menu (Section 23) */}
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="px-3 py-2 border-b border-slate-800">
-                      <p className="text-xs font-bold text-white truncate">{user.name}</p>
-                      <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                          {user.role}
-                        </span>
-                        {user.team_name && (
-                          <span className="text-[10px] text-slate-400 truncate">
-                            {user.team_name}
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="px-3 py-3 border-b border-slate-800 flex items-center gap-3">
+                      {user.profile_photo_url ? (
+                        <img
+                          src={user.profile_photo_url}
+                          alt={user.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-700"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold uppercase">
+                          {user.name ? user.name.slice(0, 2) : 'US'}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                        <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {(user.niat_id || user.participant_id) && (
+                            <span className="text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                              {user.niat_id || user.participant_id}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                            {user.role}
                           </span>
-                        )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setCurrentView('profile');
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors"
-                      >
-                        <User className="w-4 h-4 text-slate-400" />
-                        My Profile
-                      </button>
+                    {assignedProblem && (
+                      <div className="m-2 p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400 mb-0.5">
+                          <span>SELECTED CHALLENGE</span>
+                          <span>🔒 LOCKED</span>
+                        </div>
+                        <p className="text-xs font-bold text-white truncate">
+                          {assignedProblem.problem_code} — {assignedProblem.title}
+                        </p>
+                      </div>
+                    )}
 
+                    <div className="py-1">
                       <button
                         onClick={() => {
                           setCurrentView('my-problem');
                           setUserDropdownOpen(false);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors cursor-pointer"
                       >
                         <Lock className="w-4 h-4 text-emerald-400" />
-                        Selected Problem
+                        <span>My Problem</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setCurrentView('profile');
+                          setUserDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span>Profile</span>
                       </button>
 
                       {isAdmin && (
@@ -192,10 +261,10 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
                             setCurrentView('admin');
                             setUserDropdownOpen(false);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-lg transition-colors"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition-colors cursor-pointer"
                         >
                           <ShieldAlert className="w-4 h-4 text-purple-400" />
-                          Admin Console
+                          <span>Admin Console</span>
                         </button>
                       )}
                     </div>
@@ -207,10 +276,10 @@ export default function Navbar({ currentView, setCurrentView, hackathonMeta }) {
                           setUserDropdownOpen(false);
                           setCurrentView('landing');
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
-                        Sign Out
+                        <span>Logout</span>
                       </button>
                     </div>
                   </div>

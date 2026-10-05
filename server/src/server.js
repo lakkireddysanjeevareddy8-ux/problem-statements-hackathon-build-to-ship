@@ -7,10 +7,10 @@ require('dotenv').config();
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Initialize Socket.io with permissive CORS for all client origins
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: (origin, callback) => callback(null, true),
     credentials: true,
     methods: ['GET', 'POST']
   }

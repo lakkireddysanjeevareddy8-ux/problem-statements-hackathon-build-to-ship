@@ -58,10 +58,10 @@ async function seed() {
         domainId,
         p.title,
         p.description,
-        p.detailedRequirements,
-        p.expectedOutcome,
-        p.difficulty,
-        p.tags,
+        p.detailedRequirements || p.description,
+        p.expectedOutcome || p.description,
+        p.difficulty || 'Medium',
+        p.tags || '[]',
         'AVAILABLE'
       );
       count++;

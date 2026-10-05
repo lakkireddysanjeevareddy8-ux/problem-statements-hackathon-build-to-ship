@@ -1,31 +1,80 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
   const [lockedEvents, setLockedEvents] = useState([]);
   const [hackathonStatus, setHackathonStatus] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [reconnectCount, setReconnectCount] = useState(0);
+
+  // Set of callbacks subscribed to real-time problem changes (Section 4 & 6)
+  const problemSubscribersRef = useRef(new Set());
+
+  const showToast = useCallback((message, type = 'info') => {
+    setToastMessage({ message, type, id: Date.now() });
+    setTimeout(() => {
+      setToastMessage((current) => (current?.message === message ? null : current));
+    }, 4500);
+  }, []);
+
+  const clearToast = useCallback(() => setToastMessage(null), []);
 
   useEffect(() => {
-    // Connect to backend socket
     const s = io(window.location.origin, {
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000
     });
 
     s.on('connect', () => {
-      // connected
+      setConnected(true);
     });
 
+    s.on('disconnect', () => {
+      setConnected(false);
+    });
+
+    s.on('reconnect', () => {
+      setConnected(true);
+      setReconnectCount((c) => c + 1);
+    });
+
+    const notifySubscribers = (event) => {
+      problemSubscribersRef.current.forEach((callback) => {
+        try {
+          callback(event);
+        } catch (err) {
+          console.error('Problem subscriber callback error:', err);
+        }
+      });
+    };
+
+    // When a problem is locked / assigned
     s.on('problem_locked', (data) => {
       setLockedEvents((prev) => [data, ...prev.slice(0, 19)]);
-      showToast(`🔒 Problem ${data.problemCode} was just selected & locked by a participant!`, 'info');
+      notifySubscribers({ type: 'LOCKED', data });
+      showToast(`🔒 Problem ${data.problemCode} was just locked by a participant!`, 'info');
+    });
+
+    s.on('problem_assigned', (data) => {
+      notifySubscribers({ type: 'ASSIGNED', data });
+    });
+
+    // When an assignment is reset / problem becomes available again
+    s.on('problem_unlocked', (data) => {
+      notifySubscribers({ type: 'UNLOCKED', data });
+      showToast(`🔓 Problem ${data.problemCode} is now available for selection!`, 'success');
     });
 
     s.on('problem_updated', (data) => {
-      showToast(`Problem ${data.problem_code} updated: status is now ${data.status}`, 'info');
+      notifySubscribers({ type: 'UPDATED', data });
     });
 
     s.on('hackathon_status_updated', (data) => {
@@ -38,25 +87,27 @@ export function SocketProvider({ children }) {
     return () => {
       s.disconnect();
     };
+  }, [showToast]);
+
+  // Clean subscription method with automatic cleanup to prevent duplicate listeners (Section 6)
+  const subscribeToProblems = useCallback((callback) => {
+    problemSubscribersRef.current.add(callback);
+    return () => {
+      problemSubscribersRef.current.delete(callback);
+    };
   }, []);
-
-  const showToast = (message, type = 'info') => {
-    setToastMessage({ message, type, id: Date.now() });
-    setTimeout(() => {
-      setToastMessage((current) => (current?.message === message ? null : current));
-    }, 4500);
-  };
-
-  const clearToast = () => setToastMessage(null);
 
   return (
     <SocketContext.Provider value={{
       socket,
+      connected,
+      reconnectCount,
       lockedEvents,
       hackathonStatus,
       toastMessage,
       showToast,
-      clearToast
+      clearToast,
+      subscribeToProblems
     }}>
       {children}
     </SocketContext.Provider>

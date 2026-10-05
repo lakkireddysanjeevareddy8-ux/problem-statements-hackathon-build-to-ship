@@ -15,11 +15,31 @@ import AdminDashboard from './pages/AdminDashboard';
 
 function AppContent() {
   const { user, isAdmin, loading } = useAuth();
-  const [currentView, setCurrentView] = useState('landing');
+
+  const getInitialView = () => {
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    if (path === '/admin') return 'admin';
+    if (path === '/admin-login') return 'admin-login';
+    if (path === '/login') return 'login';
+    if (path === '/problems') return 'problems';
+    if (path === '/my-problem') return 'my-problem';
+    if (path === '/register') return 'register';
+    return 'landing';
+  };
+
+  const [currentView, setCurrentView] = useState(getInitialView);
   const [stats, setStats] = useState(null);
   const [domains, setDomains] = useState([]);
   const [initialDomainFilter, setInitialDomainFilter] = useState('ALL');
   const [hackathonMeta, setHackathonMeta] = useState(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getInitialView());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Load summary stats and domains on startup
   useEffect(() => {
@@ -51,6 +71,10 @@ function AppContent() {
       setInitialDomainFilter(options.domainCode);
     }
     setCurrentView(view);
+    const targetPath = view === 'landing' ? '/' : `/${view}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -70,7 +94,7 @@ function AppContent() {
       {/* Top Navbar */}
       <Navbar
         currentView={currentView}
-        setCurrentView={setCurrentView}
+        setCurrentView={handleNavigate}
         hackathonMeta={hackathonMeta}
       />
 

@@ -6,16 +6,20 @@ PRAGMA journal_mode = WAL;
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  niat_id TEXT UNIQUE COLLATE NOCASE,
+  auth_provider TEXT NOT NULL DEFAULT 'local',
+  auth_provider_user_id TEXT,
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL COLLATE NOCASE,
-  password_hash TEXT NOT NULL,
+  password_hash TEXT,
+  profile_photo_url TEXT,
   role TEXT NOT NULL DEFAULT 'PARTICIPANT' CHECK(role IN ('PARTICIPANT', 'ADMIN')),
   phone TEXT,
   college TEXT,
   course TEXT,
   year TEXT,
   team_name TEXT,
-  participant_id TEXT,
+  participant_id TEXT UNIQUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

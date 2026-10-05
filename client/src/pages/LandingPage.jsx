@@ -22,7 +22,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
     {
       step: '01',
       title: 'Register Profile',
-      desc: 'Create your participant account and verify your college and team credentials.',
+      desc: 'Create your participant account with your Full Name and NIAT ID.',
       icon: <Users className="w-5 h-5 text-indigo-400" />
     },
     {
@@ -34,7 +34,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
     {
       step: '03',
       title: 'Select ONE Problem',
-      desc: 'Carefully pick the challenge that best matches your team’s passion and technical skills.',
+      desc: 'Carefully pick the challenge that best matches your passion and technical skills.',
       icon: <Sparkles className="w-5 h-5 text-amber-400" />
     },
     {
@@ -74,7 +74,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
           </h1>
 
           <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10">
-            Welcome to the Hackathon 2026 Problem Statement Allocation Platform. Each challenge is unique and reserved for only one team. Once selected, your problem statement is permanently locked.
+            Welcome to the Hackathon 2026 Problem Statement Allocation Platform. Each challenge is unique and reserved for only one participant. Once selected, your problem statement is permanently locked.
           </p>
 
           {/* Call to Actions */}
@@ -159,7 +159,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
             <p className="text-3xl sm:text-4xl font-black text-amber-400">
               {stats?.selected_problems ?? 0}
             </p>
-            <p className="text-[10px] text-slate-400 mt-1">Locked by Teams</p>
+            <p className="text-[10px] text-slate-400 mt-1">Locked by Participants</p>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 text-center">
@@ -180,7 +180,7 @@ export default function LandingPage({ onNavigate, stats, domains }) {
             How The Allocation System Works
           </h2>
           <p className="text-slate-400 text-sm max-w-xl mx-auto">
-            Follow the 5 simple steps to register, choose your challenge, and permanently lock it to your hackathon team.
+            Follow the 5 simple steps to register, choose your challenge, and permanently lock it to your participant account.
           </p>
         </div>
 
