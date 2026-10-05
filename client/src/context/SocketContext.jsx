@@ -24,7 +24,8 @@ export function SocketProvider({ children }) {
   const clearToast = useCallback(() => setToastMessage(null), []);
 
   useEffect(() => {
-    const s = io(window.location.origin, {
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const s = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
