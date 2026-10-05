@@ -1,0 +1,29 @@
+{
+  "name": "hackathon-problem-allocation-platform",
+  "version": "1.0.0",
+  "description": "Production-ready Hackathon Problem Statement Allocation Platform with atomic database locking",
+  "main": "server/src/server.js",
+  "scripts": {
+    "start": "node server/src/server.js",
+    "seed": "node server/src/db/seed.js",
+    "server": "node server/src/server.js",
+    "client": "npm --prefix client run dev",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"node server/src/server.js\" \"npm --prefix client run dev\"",
+    "build:client": "npm --prefix client run build",
+    "test": "node test/acceptance.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
