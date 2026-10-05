@@ -47,10 +47,10 @@ export function SocketProvider({ children }) {
       setReconnectCount((c) => c + 1);
     });
 
-    const notifySubscribers = (event) => {
+    const notifySubscribers = (eventName, data) => {
       problemSubscribersRef.current.forEach((callback) => {
         try {
-          callback(event);
+          callback(eventName, data);
         } catch (err) {
           console.error('Problem subscriber callback error:', err);
         }
@@ -60,22 +60,22 @@ export function SocketProvider({ children }) {
     // When a problem is locked / assigned
     s.on('problem_locked', (data) => {
       setLockedEvents((prev) => [data, ...prev.slice(0, 19)]);
-      notifySubscribers({ type: 'LOCKED', data });
-      showToast(`🔒 Problem ${data.problemCode} was just locked by a participant!`, 'info');
+      notifySubscribers('problem_locked', data);
+      showToast(`🔒 Problem ${data?.problemCode || ''} was just locked by a participant!`, 'info');
     });
 
     s.on('problem_assigned', (data) => {
-      notifySubscribers({ type: 'ASSIGNED', data });
+      notifySubscribers('problem_assigned', data);
     });
 
     // When an assignment is reset / problem becomes available again
     s.on('problem_unlocked', (data) => {
-      notifySubscribers({ type: 'UNLOCKED', data });
-      showToast(`🔓 Problem ${data.problemCode} is now available for selection!`, 'success');
+      notifySubscribers('problem_unlocked', data);
+      showToast(`🔓 Problem ${data?.problemCode || ''} is now available for selection!`, 'success');
     });
 
     s.on('problem_updated', (data) => {
-      notifySubscribers({ type: 'UPDATED', data });
+      notifySubscribers('problem_updated', data);
     });
 
     s.on('hackathon_status_updated', (data) => {

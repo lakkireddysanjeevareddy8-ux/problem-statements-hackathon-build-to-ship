@@ -15,6 +15,8 @@ function broadcastProblemLocked(problem, userId = null) {
       problemCode: problem.problem_code,
       title: problem.title,
       status: 'ASSIGNED',
+      domainId: problem.domain_id,
+      domainCode: problem.domain_code,
       assignedUserId: userId,
       timestamp: new Date().toISOString()
     };
@@ -30,6 +32,8 @@ function broadcastProblemUnlocked(problem) {
       problemCode: problem.problem_code,
       title: problem.title,
       status: 'AVAILABLE',
+      domainId: problem.domain_id,
+      domainCode: problem.domain_code,
       timestamp: new Date().toISOString()
     };
     io.emit('problem_unlocked', payload);

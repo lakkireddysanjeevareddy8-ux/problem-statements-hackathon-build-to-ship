@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
 import Navbar from './components/Navbar';
 import Toast from './components/Toast';
 
@@ -14,7 +14,8 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
 function AppContent() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, refreshUser } = useAuth();
+  const { subscribeToProblems } = useSocket();
 
   const getInitialView = () => {
     const path = window.location.pathname.replace(/\/$/, '') || '/';
@@ -41,12 +42,12 @@ function AppContent() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Load summary stats and domains on startup
-  useEffect(() => {
+  // Fetch summary stats and domains helper
+  const fetchGlobalData = () => {
     fetch('/api/problems/domains')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
+        if (data.success && data.domains) {
           setDomains(data.domains);
         }
       })
@@ -55,16 +56,100 @@ function AppContent() {
     fetch('/api/problems')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
+        if (data.success && data.meta) {
           setHackathonMeta(data.meta);
           setStats({
-            available_problems: data.meta.total,
-            selected_problems: 160 - data.meta.total
+            total_problems: data.meta.total ?? 160,
+            available_problems: data.meta.available ?? 160,
+            selected_problems: data.meta.assigned ?? 0
           });
         }
       })
       .catch((err) => console.error(err));
+  };
+
+  // Load summary stats and domains on startup & periodically
+  useEffect(() => {
+    fetchGlobalData();
+    const interval = setInterval(fetchGlobalData, 15000);
+    return () => clearInterval(interval);
   }, []);
+
+  // Real-time synchronization for landing dashboard counters and domain badges
+  useEffect(() => {
+    if (!subscribeToProblems) return;
+
+    const unsubscribe = subscribeToProblems((event, data) => {
+      if (!data) return;
+
+      if (event === 'problem_locked' || event === 'problem_assigned') {
+        // 1. Immediately update stats counter
+        setStats((prev) => {
+          const currentAvail = prev?.available_problems ?? 160;
+          const currentSel = prev?.selected_problems ?? 0;
+          return {
+            total_problems: 160,
+            available_problems: Math.max(0, currentAvail - 1),
+            selected_problems: Math.min(160, currentSel + 1)
+          };
+        });
+
+        // 2. Decrement available count in corresponding domain
+        setDomains((prevDomains) =>
+          prevDomains.map((d) => {
+            const matches =
+              (data.domainId && d.id === data.domainId) ||
+              (data.domainCode && d.code === data.domainCode) ||
+              (data.problemCode && d.code === data.problemCode.charAt(0));
+            if (matches) {
+              return {
+                ...d,
+                available_problems: Math.max(0, (d.available_problems ?? 10) - 1)
+              };
+            }
+            return d;
+          })
+        );
+
+        // 3. Refresh user session so account header and locked problem update live
+        refreshUser();
+      } else if (event === 'problem_unlocked' || event === 'problem_updated') {
+        // 1. Immediately update stats counter
+        setStats((prev) => {
+          const currentAvail = prev?.available_problems ?? 160;
+          const currentSel = prev?.selected_problems ?? 0;
+          return {
+            total_problems: 160,
+            available_problems: Math.min(160, currentAvail + 1),
+            selected_problems: Math.max(0, currentSel - 1)
+          };
+        });
+
+        // 2. Increment available count in corresponding domain
+        setDomains((prevDomains) =>
+          prevDomains.map((d) => {
+            const matches =
+              (data.domainId && d.id === data.domainId) ||
+              (data.domainCode && d.code === data.domainCode) ||
+              (data.problemCode && d.code === data.problemCode.charAt(0));
+            if (matches) {
+              return {
+                ...d,
+                available_problems: Math.min(d.total_problems || 10, (d.available_problems ?? 0) + 1)
+              };
+            }
+            return d;
+          })
+        );
+
+        refreshUser();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribeToProblems, refreshUser]);
 
   const handleNavigate = (view, options = {}) => {
     if (options.domainCode) {

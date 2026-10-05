@@ -73,7 +73,7 @@ function lockProblemStatement(userId, problemId, ipAddress = 'unknown') {
 
     // B. Check if problem exists
     const problem = db.prepare(`
-      SELECT p.id, p.problem_code, p.title, p.status, d.name as domain_name
+      SELECT p.id, p.problem_code, p.title, p.status, p.domain_id, d.name as domain_name, d.code as domain_code
       FROM problem_statements p
       JOIN domains d ON p.domain_id = d.id
       WHERE p.id = ?

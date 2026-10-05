@@ -86,7 +86,7 @@ const currentTitle = getSetting.get('hackathon_title');
 if (!currentTitle) {
   insertSetting.run('hackathon_title', 'Build-to-Ship');
 } else if (currentTitle.value === 'HACKATHON 2026') {
-  db.prepare(`UPDATE settings SET value = 'Build-to-Ship' WHERE key = 'hackathon_title'`).run();
+  db.prepare(`UPDATE system_settings SET value = 'Build-to-Ship' WHERE key = 'hackathon_title'`).run();
 }
 
 module.exports = db;
