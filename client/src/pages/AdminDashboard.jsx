@@ -58,6 +58,15 @@ export default function AdminDashboard({ onNavigate }) {
   const [resetReason, setResetReason] = useState('');
   const [resetting, setResetting] = useState(false);
 
+  // Participant Deletion & Long-Press State
+  const [participantToDelete, setParticipantToDelete] = useState(null);
+  const [deletingParticipant, setDeletingParticipant] = useState(false);
+  const [deleteParticipantError, setDeleteParticipantError] = useState(null);
+  const [longPressId, setLongPressId] = useState(null);
+  const [pressProgress, setPressProgress] = useState(0);
+  const pressTimerRef = React.useRef(null);
+  const progressIntervalRef = React.useRef(null);
+
   // New/Edit problem form
   const [problemForm, setProblemForm] = useState({
     problem_code: '',
@@ -290,6 +299,75 @@ export default function AdminDashboard({ onNavigate }) {
       }
     } catch (err) {
       showAlert('Failed to delete problem', 'error');
+    }
+  };
+
+  // Participant Long-Press & Deletion handlers
+  const handleStartPress = (participant) => {
+    setLongPressId(participant.id);
+    setPressProgress(0);
+
+    const DURATION = 600; // ms to trigger long press
+    const startTime = Date.now();
+
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+
+    progressIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, Math.round((elapsed / DURATION) * 100));
+      setPressProgress(pct);
+    }, 20);
+
+    pressTimerRef.current = setTimeout(() => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      setLongPressId(null);
+      setPressProgress(0);
+      setParticipantToDelete(participant);
+      setDeleteParticipantError(null);
+    }, DURATION);
+  };
+
+  const handleCancelPress = () => {
+    if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    setLongPressId(null);
+    setPressProgress(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) clearTimeout(pressTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
+
+  const handleDeleteParticipant = async (participantId) => {
+    if (!participantId) return;
+    setDeletingParticipant(true);
+    setDeleteParticipantError(null);
+
+    try {
+      const res = await fetch(`/api/admin/participants/${participantId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert(data.message, 'success');
+        setParticipantToDelete(null);
+        fetchParticipants();
+        fetchDashboard();
+        fetchProblems();
+        fetchAssignments();
+      } else {
+        setDeleteParticipantError(data.message || 'Failed to delete participant.');
+      }
+    } catch (err) {
+      console.error('Delete participant error:', err);
+      setDeleteParticipantError('Network error while deleting participant.');
+    } finally {
+      setDeletingParticipant(false);
     }
   };
 
@@ -928,7 +1006,112 @@ export default function AdminDashboard({ onNavigate }) {
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-xl">
+          {/* Quick Delete Tip Banner */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs shrink-0">
+                <Trash2 className="w-3.5 h-3.5" />
+              </div>
+              <span>
+                <strong className="text-white">Delete Participant:</strong> Long-press (hold mouse/touch for 600ms) on any participant card or row to delete them, or click the <Trash2 className="w-3 h-3 inline text-rose-400 mx-0.5" /> button to open confirmation.
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500 hidden md:inline">Hold 600ms</span>
+          </div>
+
+          {/* Mobile Card View (md:hidden) */}
+          <div className="md:hidden space-y-3">
+            {participants.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+                No participants found.
+              </div>
+            ) : (
+              participants.map((u) => (
+                <div
+                  key={`card-${u.id}`}
+                  onPointerDown={(e) => {
+                    if (e.button === 0 || e.pointerType === 'touch') {
+                      handleStartPress(u);
+                    }
+                  }}
+                  onPointerUp={handleCancelPress}
+                  onPointerLeave={handleCancelPress}
+                  onPointerCancel={handleCancelPress}
+                  onContextMenu={(e) => {
+                    if (longPressId === u.id) e.preventDefault();
+                  }}
+                  className={`p-4 rounded-2xl border transition-all relative overflow-hidden select-none cursor-pointer ${
+                    longPressId === u.id
+                      ? 'border-rose-500 bg-rose-950/40 ring-2 ring-rose-500/60 scale-[0.98]'
+                      : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
+                  }`}
+                >
+                  {longPressId === u.id && (
+                    <div
+                      className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 transition-all duration-75"
+                      style={{ width: `${pressProgress}%` }}
+                    />
+                  )}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-white text-sm">{u.name}</h4>
+                        {longPressId === u.id && (
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white animate-pulse">
+                            Hold {pressProgress}%
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-mono font-bold text-indigo-400">
+                        {u.niat_id || u.participant_id || '—'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setParticipantToDelete(u);
+                        setDeleteParticipantError(null);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-slate-800"
+                      title="Delete participant"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-400 space-y-1 mb-3">
+                    <p className="truncate"><span className="text-slate-500">Email:</span> {u.email}</p>
+                    {u.college && <p className="truncate"><span className="text-slate-500">College:</span> {u.college}</p>}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <div>
+                      {u.problem_code ? (
+                        <span className="font-mono text-[11px] font-bold text-amber-400">
+                          {u.problem_code} — {u.problem_title}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 italic text-[11px]">No problem selected</span>
+                      )}
+                    </div>
+                    {u.assignment_id ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        LOCKED
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                        UNASSIGNED
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View (hidden md:block) */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur-xl">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950/80 text-slate-400 font-bold border-b border-slate-800">
                 <tr>
@@ -939,20 +1122,53 @@ export default function AdminDashboard({ onNavigate }) {
                   <th className="py-3.5 px-4">Assigned Problem</th>
                   <th className="py-3.5 px-4">Selection Time</th>
                   <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {participants.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       No participants found.
                     </td>
                   </tr>
                 ) : (
                   participants.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-white">
-                        {u.name}
+                    <tr
+                      key={u.id}
+                      onPointerDown={(e) => {
+                        if (e.button === 0 || e.pointerType === 'touch') {
+                          handleStartPress(u);
+                        }
+                      }}
+                      onPointerUp={handleCancelPress}
+                      onPointerLeave={handleCancelPress}
+                      onPointerCancel={handleCancelPress}
+                      onContextMenu={(e) => {
+                        if (longPressId === u.id) e.preventDefault();
+                      }}
+                      className={`transition-all relative select-none cursor-pointer group ${
+                        longPressId === u.id
+                          ? 'bg-rose-950/60 ring-2 ring-rose-500/80 scale-[0.995]'
+                          : 'hover:bg-slate-800/40'
+                      }`}
+                      title="Hold / long-press to delete participant"
+                    >
+                      <td className="py-3 px-4 font-bold text-white relative">
+                        {longPressId === u.id && (
+                          <div
+                            className="absolute left-0 bottom-0 h-1 bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 transition-all duration-75"
+                            style={{ width: `${pressProgress}%` }}
+                          />
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span>{u.name}</span>
+                          {longPressId === u.id && (
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-500 text-white animate-pulse">
+                              Hold {pressProgress}%
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-indigo-400">
                         {u.niat_id || u.participant_id || '—'}
@@ -991,6 +1207,19 @@ export default function AdminDashboard({ onNavigate }) {
                             UNASSIGNED
                           </span>
                         )}
+                      </td>
+                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setParticipantToDelete(u);
+                            setDeleteParticipantError(null);
+                          }}
+                          title="Delete participant"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -1505,6 +1734,114 @@ export default function AdminDashboard({ onNavigate }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM DELETE PARTICIPANT */}
+      {participantToDelete && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deletingParticipant) {
+              setParticipantToDelete(null);
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150"
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-rose-500/40 bg-slate-900 p-6 shadow-2xl shadow-rose-950/50">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400">
+                  Admin Action
+                </span>
+                <h3 className="text-lg font-bold text-white">
+                  Confirm Delete Participant
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !deletingParticipant && setParticipantToDelete(null)}
+                disabled={deletingParticipant}
+                className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 mb-4 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Participant Name:</span>
+                <span className="font-bold text-white text-sm">{participantToDelete.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">NIAT ID:</span>
+                <span className="font-mono font-bold text-indigo-400">
+                  {participantToDelete.niat_id || participantToDelete.participant_id || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Email:</span>
+                <span className="text-slate-200">{participantToDelete.email}</span>
+              </div>
+              {participantToDelete.college && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">College:</span>
+                  <span className="text-slate-300">{participantToDelete.college}</span>
+                </div>
+              )}
+            </div>
+
+            {(participantToDelete.assignment_id || participantToDelete.problem_code) && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 mb-4 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300 block mb-0.5">Assigned Problem Will Be Released:</strong>
+                  This participant currently has locked problem <span className="font-mono font-bold text-white">{participantToDelete.problem_code}</span> ({participantToDelete.problem_title}). Deleting will immediately free this problem statement back to <strong className="text-emerald-300">AVAILABLE</strong> status for all participants.
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+              Are you sure you want to delete <strong className="text-white">{participantToDelete.name}</strong>? This action cannot be undone.
+            </p>
+
+            {deleteParticipantError && (
+              <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 mb-4">
+                {deleteParticipantError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={deletingParticipant}
+                onClick={() => setParticipantToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingParticipant}
+                onClick={() => handleDeleteParticipant(participantToDelete.id)}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-lg shadow-rose-950 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deletingParticipant ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

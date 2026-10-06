@@ -383,6 +383,72 @@ router.get('/participants', (req, res) => {
   }
 });
 
+// 7b. Delete Participant (with atomic problem assignment release)
+router.delete('/participants/:id', (req, res) => {
+  try {
+    const participantId = req.params.id;
+
+    // Check participant exists and has PARTICIPANT role
+    const participant = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'PARTICIPANT'").get(participantId);
+    if (!participant) {
+      return res.status(404).json({ success: false, message: 'Participant not found or cannot be deleted.' });
+    }
+
+    // Check if participant has an active assignment
+    const assignment = db.prepare(`
+      SELECT a.id as assignment_id, a.problem_statement_id, p.problem_code, p.title
+      FROM problem_assignments a
+      JOIN problem_statements p ON a.problem_statement_id = p.id
+      WHERE a.user_id = ?
+    `).get(participantId);
+
+    const deleteTx = db.transaction(() => {
+      // If participant had an assignment, release it first to avoid foreign key restrict
+      if (assignment) {
+        db.prepare('DELETE FROM problem_assignments WHERE id = ?').run(assignment.assignment_id);
+        db.prepare("UPDATE problem_statements SET status = 'AVAILABLE', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(assignment.problem_statement_id);
+      }
+
+      // Delete participant from users table
+      db.prepare('DELETE FROM users WHERE id = ?').run(participantId);
+
+      // Record in audit log
+      logAudit(
+        req.user.id,
+        'ADMIN_DELETED_PARTICIPANT',
+        'USER',
+        String(participantId),
+        {
+          name: participant.name,
+          email: participant.email,
+          niat_id: participant.niat_id,
+          released_problem: assignment ? assignment.problem_code : null
+        },
+        req
+      );
+    });
+
+    deleteTx();
+
+    // Broadcast problem unlocked if a problem was freed
+    if (assignment) {
+      const updatedProblem = db.prepare('SELECT * FROM problem_statements WHERE id = ?').get(assignment.problem_statement_id);
+      if (updatedProblem) {
+        broadcastProblemUnlocked(updatedProblem);
+        broadcastProblemUpdated(updatedProblem);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Participant "${participant.name}" deleted successfully.${assignment ? ` Problem ${assignment.problem_code} was released back to Available.` : ''}`
+    });
+  } catch (err) {
+    console.error('Delete participant error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete participant.' });
+  }
+});
+
 // 8. Assignments List
 router.get('/assignments', (req, res) => {
   try {
